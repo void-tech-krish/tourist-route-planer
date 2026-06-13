@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-lux-bg: #FAFAFA;
+  --color-lux-white: #FFFFFF;
+  --color-lux-cream: #F5F5F0;
+  --color-lux-gray: #F0F0F0;
+  
+  --color-lux-navy: #1A202C;
+  --color-lux-text: #2D3748;
+  --color-lux-muted: #718096;
+  
+  --color-lux-orange: #E07A5F;
+  --color-lux-gold: #D4A373;
+  
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+  
+  --shadow-lux: 0 10px 40px -10px rgba(0,0,0,0.08);
+  --shadow-lux-hover: 0 20px 50px -10px rgba(0,0,0,0.12);
+}
+
+@layer base {
+  body {
+    @apply bg-lux-bg text-lux-text font-sans antialiased overflow-x-hidden;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif text-lux-navy tracking-tight;
+  }
+}
+
+@layer utilities {
+  .lux-card {
+    @apply !bg-lux-white !rounded-3xl !shadow-lux transition-all duration-500 ease-out;
+  }
+  
+  .lux-card:hover {
+    @apply !shadow-lux-hover -translate-y-1;
+  }
+  
+  .lux-button {
+    @apply relative overflow-hidden !bg-gradient-to-r from-lux-orange to-[#e85d38] !text-white !px-8 !py-4 !rounded-full !font-bold tracking-wide transition-all duration-300 shadow-[0_0_15px_rgba(224,122,95,0.3)];
+  }
+  
+  .lux-button:hover {
+    @apply scale-105 shadow-[0_0_25px_rgba(224,122,95,0.5)];
+  }
+
+  .lux-button::before {
+    content: '';
+    @apply absolute inset-0 bg-white/25 -translate-x-full transition-transform duration-500 ease-out z-10;
+  }
+
+  .lux-button:hover::before {
+    @apply translate-x-full;
+  }
+  
+  /* Need a wrapper span to keep text above the pseudo element */
+  .lux-button > span {
+    @apply relative z-20;
+  }
+  
+  .lux-button-outline {
+    @apply !bg-transparent !border !border-lux-navy !text-lux-navy !px-8 !py-4 !rounded-full !font-medium !tracking-wide transition-all duration-300;
+  }
+  
+  .lux-button-outline:hover {
+    @apply !bg-lux-navy !text-white;
+  }
+
+  .glass-nav {
+    @apply !bg-white/80 !backdrop-blur-md !border-b !border-gray-100;
+  }
+}
+
+/* Elegant Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAFAFA;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
+}
