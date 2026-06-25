@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin } from 'lucide-react';
+import { MapPin, BarChart2 } from 'lucide-react';
 
-export default function Navbar({ onOpenMap }) {
+export default function Navbar({ onOpenMap, onOpenAnalytics }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -32,12 +32,26 @@ export default function Navbar({ onOpenMap }) {
           <a href="#stories" className="hover:opacity-70 transition-opacity">Journal</a>
         </div>
         
-        <button 
-          onClick={onOpenMap}
-          className={scrolled ? 'lux-button px-6 py-3 text-sm' : 'lux-button px-6 py-3 text-sm'}
-        >
-          <span>Plan Your Trip</span>
-        </button>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onOpenAnalytics}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${
+              scrolled 
+                ? 'bg-gray-100 text-lux-navy hover:bg-gray-200' 
+                : 'bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm'
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" />
+            <span className="hidden md:inline text-sm">Analytics</span>
+          </button>
+          
+          <button 
+            onClick={onOpenMap}
+            className={scrolled ? 'lux-button px-6 py-3 text-sm' : 'lux-button px-6 py-3 text-sm'}
+          >
+            <span>Plan Your Trip</span>
+          </button>
+        </div>
       </div>
     </motion.nav>
   );

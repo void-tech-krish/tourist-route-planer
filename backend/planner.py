@@ -59,20 +59,15 @@ def generate_itinerary(state, days, budget_tier, style_pref):
     # 5. Build Day-by-Day Itinerary
     itinerary = []
     total_cost = 0
-    actual_days = 0
     
     loc_idx = 0
     for day in range(1, days + 1):
-        if loc_idx >= len(route):
-            break # Stop generating empty days if we run out of locations
-            
         day_plan = {
             "day": day,
             "title": f"Exploring {state} - Day {day}",
             "activities": []
         }
         
-        # Add 2 activities per day if available
         if loc_idx < len(route):
             act1 = route[loc_idx]
             day_plan["activities"].append({
@@ -83,27 +78,46 @@ def generate_itinerary(state, days, budget_tier, style_pref):
             total_cost += act1["estimated_cost_inr"]
             loc_idx += 1
             
-        if loc_idx < len(route):
-            act2 = route[loc_idx]
-            dist = haversine_dist(route[loc_idx-1]["lat"], route[loc_idx-1]["lng"], act2["lat"], act2["lng"])
-            travel_time = round((dist / 50) * 60) # mins
+            # Check if we have enough locations left to do 2 activities today without starving future days
+            remaining_days = days - day
+            remaining_locs = len(route) - loc_idx
+            
+            if remaining_locs > remaining_days:
+                act2 = route[loc_idx]
+                dist = haversine_dist(route[loc_idx-1]["lat"], route[loc_idx-1]["lng"], act2["lat"], act2["lng"])
+                travel_time = round((dist / 50) * 60) # mins
+                
+                day_plan["activities"].append({
+                    "time": "02:00 PM",
+                    "location": act2,
+                    "travel_from_previous": f"{dist:.1f} km ({travel_time} mins)",
+                    "cost": act2["estimated_cost_inr"]
+                })
+                total_cost += act2["estimated_cost_inr"]
+                loc_idx += 1
+        else:
+            # We ran out of new locations. Use the last location for a leisure day.
+            last_loc_name = route[-1]["name"] if route else state
             
             day_plan["activities"].append({
-                "time": "02:00 PM",
-                "location": act2,
-                "travel_from_previous": f"{dist:.1f} km ({travel_time} mins)",
-                "cost": act2["estimated_cost_inr"]
+                "time": "10:00 AM",
+                "location": {
+                    "name": f"Leisure Day in {last_loc_name}",
+                    "description": "Take a rest day to explore local markets and cuisine at your own pace.",
+                    "type": "Leisure",
+                    "crowd_level": "Low",
+                    "estimated_cost_inr": 1000
+                },
+                "cost": 1000
             })
-            total_cost += act2["estimated_cost_inr"]
-            loc_idx += 1
+            total_cost += 1000
             
         itinerary.append(day_plan)
-        actual_days += 1
 
     return {
         "success": True,
         "state": state,
-        "total_days": actual_days,
+        "total_days": days,
         "total_estimated_cost_inr": total_cost,
         "itinerary": itinerary
     }

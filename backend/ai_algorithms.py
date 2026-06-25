@@ -53,6 +53,82 @@ else:
     print("\n[FAILED] No route found within budget.")
 
 # ---------------------------------------------------------
+# 1.5 A* SEARCH ALGORITHM
+# ---------------------------------------------------------
+import heapq
+
+print("\n" + "="*50)
+print("1.5 A* SEARCH ALGORITHM")
+print("="*50)
+print("Goal: Find the optimal path to Mumbai using A* (f(n) = g(n) + h(n)).")
+
+def a_star_search(start, goal):
+    open_set = []
+    heapq.heappush(open_set, (0 + heuristic.get(start, float('inf')), 0, start, [start]))
+    visited = set()
+
+    while open_set:
+        f, g, current, path = heapq.heappop(open_set)
+
+        if current == goal:
+            return path, g
+
+        if current in visited:
+            continue
+        visited.add(current)
+
+        for neighbor, cost in graph.get(current, {}).items():
+            if neighbor not in visited:
+                tentative_g = g + cost
+                h = heuristic.get(neighbor, float('inf'))
+                heapq.heappush(open_set, (tentative_g + h, tentative_g, neighbor, path + [neighbor]))
+
+    return None
+
+res_astar = a_star_search('Delhi', 'Mumbai')
+if res_astar:
+    print(f"\n[SUCCESS] Route Found via A*: {' -> '.join(res_astar[0])} | Cost: {res_astar[1]} km")
+else:
+    print("\n[FAILED] No route found.")
+
+# ---------------------------------------------------------
+# 1.6 GREEDY BEST-FIRST SEARCH
+# ---------------------------------------------------------
+print("\n" + "="*50)
+print("1.6 GREEDY BEST-FIRST SEARCH")
+print("="*50)
+print("Goal: Find a path to Mumbai using Greedy BFS (f(n) = h(n)).")
+
+def greedy_best_first_search(start, goal):
+    open_set = []
+    heapq.heappush(open_set, (heuristic.get(start, float('inf')), 0, start, [start]))
+    visited = set()
+
+    while open_set:
+        h_current, g, current, path = heapq.heappop(open_set)
+
+        if current == goal:
+            return path, g
+
+        if current in visited:
+            continue
+        visited.add(current)
+
+        for neighbor, cost in graph.get(current, {}).items():
+            if neighbor not in visited:
+                h = heuristic.get(neighbor, float('inf'))
+                tentative_g = g + cost
+                heapq.heappush(open_set, (h, tentative_g, neighbor, path + [neighbor]))
+
+    return None
+
+res_greedy = greedy_best_first_search('Delhi', 'Mumbai')
+if res_greedy:
+    print(f"\n[SUCCESS] Route Found via Greedy BFS: {' -> '.join(res_greedy[0])} | Cost: {res_greedy[1]} km")
+else:
+    print("\n[FAILED] No route found.")
+
+# ---------------------------------------------------------
 # 2. FORWARD CHECKING (CSP)
 # ---------------------------------------------------------
 print("\n" + "="*50)

@@ -26,16 +26,21 @@ export function generateNetworks() {
             edges.push({ source: v, target: u, mode: 'flight', dist, time: Math.round((dist/800)*60)+90, cost: Math.round(dist*8), scenic: 2 });
 
             // Ensure islands (Andaman & Lakshadweep) do not get train/bus/car routes across the ocean!
-            const isUIsland = u === 'IXZ' || u === 'AGX';
-            const isVIsland = v === 'IXZ' || v === 'AGX';
+            const isNodeIsland = (nodeId) => {
+                if (nodeId === 'IXZ' || nodeId === 'AGX') return true;
+                const name = nodes[nodeId]?.name || '';
+                return name.includes('Andaman') || name.includes('Lakshadweep');
+            };
+            const isUIsland = isNodeIsland(u);
+            const isVIsland = isNodeIsland(v);
             const isLandRouteValid = !isUIsland && !isVIsland;
 
-            if (isLandRouteValid && dist < 1500) {
+            if (isLandRouteValid && dist < 1200) {
                 edges.push({ source: u, target: v, mode: 'train', dist, time: Math.round((dist/80)*60), cost: Math.round(dist*1.5), scenic: 8 });
                 edges.push({ source: v, target: u, mode: 'train', dist, time: Math.round((dist/80)*60), cost: Math.round(dist*1.5), scenic: 8 });
             }
 
-            if (isLandRouteValid && dist < 800) {
+            if (isLandRouteValid && dist < 1200) {
                 edges.push({ source: u, target: v, mode: 'bus', dist, time: Math.round((dist/50)*60), cost: Math.round(dist*1), scenic: 6 });
                 edges.push({ source: v, target: u, mode: 'bus', dist, time: Math.round((dist/50)*60), cost: Math.round(dist*1), scenic: 6 });
                 edges.push({ source: u, target: v, mode: 'car', dist, time: Math.round((dist/70)*60), cost: Math.round(dist*4), scenic: 9 });
@@ -102,24 +107,23 @@ function runBFS(source, target, adj) {
 
 // 2. Depth-First Search (DFS)
 function runDFS(source, target, adj) {
-    let stack = [{ node: source, cost: 0, time: 0, scenic: 0, path: [source], modePath: [], visited: new Set([source]) }];
+    let stack = [{ node: source, cost: 0, time: 0, scenic: 0, path: [source], modePath: [] }];
+    let visited = new Set([source]);
     
     while (stack.length > 0) {
         let current = stack.pop();
         if (current.node === target) return current;
 
         for (let edge of (adj[current.node] || [])) {
-            if (!current.visited.has(edge.target)) {
-                let newVisited = new Set(current.visited);
-                newVisited.add(edge.target);
+            if (!visited.has(edge.target)) {
+                visited.add(edge.target);
                 stack.push({
                     node: edge.target,
                     cost: current.cost + edge.cost,
                     time: current.time + edge.time,
                     scenic: current.scenic + edge.scenic,
                     path: [...current.path, edge.target],
-                    modePath: [...current.modePath, edge.mode],
-                    visited: newVisited
+                    modePath: [...current.modePath, edge.mode]
                 });
             }
         }
@@ -228,6 +232,48 @@ function runForwardChecking(source, target, adj) {
     return best;
 }
 
+// 6.5 Constraint Satisfaction Problem (CSP)
+function runCSP(source, target, adj) {
+    let best = null;
+    let iters = 0;
+    
+    // Domain filtering (Arc/Node Consistency): Remove dead-ends before searching
+    let validDomains = new Set(Object.keys(nodes));
+    let changed = true;
+    while(changed) {
+        changed = false;
+        for (let node of validDomains) {
+            if (node === source || node === target) continue;
+            let neighbors = (adj[node] || []).filter(e => validDomains.has(e.target));
+            if (neighbors.length <= 1) { // Dead end or disconnected
+                validDomains.delete(node);
+                changed = true;
+            }
+        }
+    }
+
+    function backtrackCSP(current, cost, time, scenic, path, modePath, visited) {
+        if (iters++ > 100000) return;
+        if (best && cost >= best.cost) return; // Cost constraint pruning
+        if (current === target) {
+            best = { node: current, cost, time, scenic, path, modePath };
+            return;
+        }
+        
+        // Only explore edges that are within our filtered valid domain
+        let edges = (adj[current] || []).filter(e => !visited.has(e.target) && validDomains.has(e.target));
+        
+        for (let edge of edges) {
+            visited.add(edge.target);
+            backtrackCSP(edge.target, cost + edge.cost, time + edge.time, scenic + edge.scenic, [...path, edge.target], [...modePath, edge.mode], visited);
+            visited.delete(edge.target);
+        }
+    }
+    
+    backtrackCSP(source, 0, 0, 0, [source], [], new Set([source]));
+    return best;
+}
+
 // 7. & 8. Minimax / AlphaBeta (Adversarial Routing vs Traffic Nature)
 function runAdversarial(source, target, adj, useAlphaBeta) {
     // Model: Max (Nature) increases cost of next edge by 50% (traffic spike). Min (Tourist) tries to minimize cost.
@@ -317,6 +363,80 @@ function runAdversarial(source, target, adj, useAlphaBeta) {
     return res;
 }
 
+// 9. Min-Conflicts (Iterative Repair / Local Search)
+function runMinConflicts(source, target, adj) {
+    // Start with a flawed path: just source to target directly.
+    let path = [source, target];
+    let maxIters = 2000;
+    
+    for (let iter = 0; iter < maxIters; iter++) {
+        let hasConflict = false;
+        
+        // Find conflicts (adjacent nodes in path without a direct edge)
+        for (let i = 0; i < path.length - 1; i++) {
+            let u = path[i];
+            let v = path[i+1];
+            
+            // Check if there's a valid edge between u and v
+            let edge = (adj[u] || []).find(e => e.target === v);
+            
+            if (!edge) {
+                hasConflict = true;
+                
+                // CONFLICT DETECTED between u and v!
+                // Min-Conflicts strategy: insert a new node between u and v that minimizes 
+                // the spatial conflict (heuristic distance: dist(u, C) + dist(C, v))
+                
+                let bestC = null;
+                let minConflictScore = Infinity;
+                
+                for (let c of Object.keys(nodes)) {
+                    if (path.includes(c)) continue; // Avoid loops
+                    
+                    let distUC = haversineDistRaw(nodes[u].lat, nodes[u].lng, nodes[c].lat, nodes[c].lng);
+                    let distCV = haversineDistRaw(nodes[c].lat, nodes[c].lng, nodes[v].lat, nodes[v].lng);
+                    let score = distUC + distCV;
+                    
+                    // Bonus: if c actually has an edge from u, massively reduce the score to favor valid edges
+                    let edgeUC = (adj[u] || []).find(e => e.target === c);
+                    if (edgeUC) score -= 5000; // Large bonus for resolving the conflict at 'u'
+                    
+                    if (score < minConflictScore) {
+                        minConflictScore = score;
+                        bestC = c;
+                    }
+                }
+                
+                if (bestC) {
+                    // Insert the node that minimizes the conflict
+                    path.splice(i + 1, 0, bestC);
+                } else {
+                    // Stuck, just fall back to A* if Min-Conflicts fails to converge
+                    return runAStar(source, target, adj, 'cost', true);
+                }
+                
+                break; // Break and restart the conflict check from the beginning
+            }
+        }
+        
+        if (!hasConflict) {
+            // Path is valid! Calculate total cost, time, scenic
+            let cost = 0, time = 0, scenic = 0, modePath = [];
+            for (let i = 0; i < path.length - 1; i++) {
+                let edge = (adj[path[i]] || []).find(e => e.target === path[i+1]);
+                cost += edge.cost;
+                time += edge.time;
+                scenic += edge.scenic;
+                modePath.push(edge.mode);
+            }
+            return { node: target, cost, time, scenic, path, modePath };
+        }
+    }
+    
+    // If it fails to converge, fallback to A*
+    return runAStar(source, target, adj, 'cost', true);
+}
+
 // Master Dispatcher
 export function runAlgorithm(source, target, transportMode, optimizeFor, algoType) {
     const adj = getAdjacencyList(transportMode);
@@ -329,6 +449,8 @@ export function runAlgorithm(source, target, transportMode, optimizeFor, algoTyp
         case 'astar': bestPath = runAStar(source, target, adj, optimizeFor, true); break;
         case 'backtrack': bestPath = runBacktracking(source, target, adj); break;
         case 'fc': bestPath = runForwardChecking(source, target, adj); break;
+        case 'csp': bestPath = runCSP(source, target, adj); break;
+        case 'minconflicts': bestPath = runMinConflicts(source, target, adj); break;
         case 'minimax': bestPath = runAdversarial(source, target, adj, false); break;
         case 'alphabeta': bestPath = runAdversarial(source, target, adj, true); break;
         default: bestPath = runAStar(source, target, adj, optimizeFor, true);

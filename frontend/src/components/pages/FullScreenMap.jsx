@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import L from 'leaflet';
-import { MapPin, Clock, DollarSign, Leaf, Zap, ArrowLeft, Plane, Train, Bus, Car, Sparkles, BrainCircuit, Navigation, Flag, Map as MapIcon } from 'lucide-react';
+import { MapPin, Clock, DollarSign, Leaf, Zap, ArrowLeft, Plane, Train, Bus, Car, Sparkles, BrainCircuit, Navigation, Flag, Map as MapIcon, BarChart2, X } from 'lucide-react';
 import { nodes } from '../../utils/cities';
 import { runAlgorithm } from '../../utils/algorithms';
 import SmartPlanner from './SmartPlanner';
@@ -91,13 +92,14 @@ async function fetchRealWorldPath(routeData, modeOverride = null) {
   return routeData; // Fallback to straight lines if API fails
 }
 
-function MapUpdater({ center }) {
+function MapUpdater({ coords }) {
   const map = useMap();
   React.useEffect(() => {
-    if (center) {
-      map.flyTo(center, 6, { duration: 1.5, easeLinearity: 0.25 });
+    if (coords && coords.length > 0) {
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 8, animate: true, duration: 1.5 });
     }
-  }, [center, map]);
+  }, [coords, map]);
   return null;
 }
 
@@ -113,7 +115,24 @@ export default function FullScreenMap({ onClose }) {
   const [comparedRoutes, setComparedRoutes] = useState(null); // { cheapest, fastest, all: {} }
   const [isCalculating, setIsCalculating] = useState(false);
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [algoStats, setAlgoStats] = useState([]);
+  const [transportStats, setTransportStats] = useState([]);
   const cityEntries = Object.entries(nodes);
+
+  const getUniqueCitiesForState = (stateCode) => {
+    const stateCities = cityEntries.filter(([key, city]) => getStateCode(city.name) === stateCode);
+    const unique = [];
+    const names = new Set();
+    for (const [key, city] of stateCities) {
+      const cleanName = city.name.replace(/\s*\([^)]+\)/, '').trim();
+      if (!names.has(cleanName)) {
+        names.add(cleanName);
+        unique.push([key, city]);
+      }
+    }
+    return unique.sort((a, b) => a[1].name.localeCompare(b[1].name));
+  };
 
   const computeRoute = async () => {
     setIsCalculating(true);
@@ -141,12 +160,29 @@ export default function FullScreenMap({ onClose }) {
           if (r.data.totalTime < fastest.data.totalTime) fastest = r;
         });
 
-        // Only fetch OSRM data for cheapest and fastest to save API limits
-        const cheapestData = await fetchRealWorldPath(cheapest.data, cheapest.mode);
-        const fastestData = await fetchRealWorldPath(fastest.data, fastest.mode);
-        
-        cheapest.data = cheapestData;
-        fastest.data = fastestData;
+        // Fetch OSRM data for all valid modes to show them all
+        await Promise.all(allRoutesRaw.map(async (r) => {
+          r.data = await fetchRealWorldPath(r.data, r.mode);
+        }));
+
+        const tStats = allRoutesRaw.map(r => ({
+          name: r.mode.charAt(0).toUpperCase() + r.mode.slice(1),
+          Cost: r.data.totalCost,
+          Time: r.data.totalTime
+        }));
+        setTransportStats(tStats);
+
+        const algosToRun = ['astar', 'bfs', 'ucs', 'dfs'];
+        const aStats = algosToRun.map(alg => {
+          const res = runAlgorithm(origin, destination, cheapest.mode, 'cost', alg);
+          return {
+            name: alg.toUpperCase(),
+            Cost: res ? res.totalCost : 0,
+            Time: res ? res.totalTime : 0,
+            PathLength: res ? res.path.length : 0
+          };
+        });
+        setAlgoStats(aStats);
 
         setComparedRoutes({ cheapest, fastest, allRoutes: allRoutesRaw });
         setActiveRoute(cheapest.data);
@@ -157,6 +193,30 @@ export default function FullScreenMap({ onClose }) {
     } else {
       const rawResult = runAlgorithm(origin, destination, mode, 'cost', algorithm);
       const finalResult = await fetchRealWorldPath(rawResult, mode);
+      
+      const tModes = ['flight', 'train', 'bus', 'car'];
+      const tStats = tModes.map(m => {
+        const res = runAlgorithm(origin, destination, m, 'cost', algorithm);
+        return {
+          name: m.charAt(0).toUpperCase() + m.slice(1),
+          Cost: res ? res.totalCost : 0,
+          Time: res ? res.totalTime : 0
+        };
+      }).filter(s => s.Cost > 0);
+      setTransportStats(tStats);
+
+      const algosToRun = ['astar', 'bfs', 'ucs', 'dfs'];
+      const aStats = algosToRun.map(alg => {
+        const res = runAlgorithm(origin, destination, mode, 'cost', alg);
+        return {
+          name: alg.toUpperCase(),
+          Cost: res ? res.totalCost : 0,
+          Time: res ? res.totalTime : 0,
+          PathLength: res ? res.path.length : 0
+        };
+      });
+      setAlgoStats(aStats);
+
       if (!finalResult) {
         alert('No route available for this transportation mode between these locations! (e.g. You cannot take a train or bus to an island). Please try Flight or Compare All.');
       }
@@ -205,8 +265,7 @@ export default function FullScreenMap({ onClose }) {
                 className="w-full bg-white border border-gray-200 text-lux-navy font-semibold rounded-xl p-3 outline-none focus:border-lux-orange transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 <option value="">Select City...</option>
-                {cityEntries
-                  .filter(([key, city]) => getStateCode(city.name) === originState)
+                {getUniqueCitiesForState(originState)
                   .map(([key, city]) => (
                     <option key={`orig-city-${key}`} value={key}>
                       {city.name.replace(/\s*\([^)]+\)/, '')}
@@ -243,8 +302,7 @@ export default function FullScreenMap({ onClose }) {
                 className="w-full bg-white border border-gray-200 text-lux-navy font-semibold rounded-xl p-3 outline-none focus:border-lux-orange transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 <option value="">Select City...</option>
-                {cityEntries
-                  .filter(([key, city]) => getStateCode(city.name) === destinationState)
+                {getUniqueCitiesForState(destinationState)
                   .map(([key, city]) => (
                     <option key={`dest-city-${key}`} value={key}>
                       {city.name.replace(/\s*\([^)]+\)/, '')}
@@ -303,6 +361,8 @@ export default function FullScreenMap({ onClose }) {
                 <option value="ucs">Uniform Cost Search</option>
                 <option value="backtrack">Backtracking</option>
                 <option value="fc">Forward Checking</option>
+                <option value="csp">Constraint Satisfaction Problem (CSP)</option>
+                <option value="minconflicts">Min-Conflicts (Iterative Repair)</option>
                 <option value="minimax">Minimax (Adversarial)</option>
                 <option value="alphabeta">Alpha-Beta Pruning</option>
               </select>
@@ -383,7 +443,7 @@ export default function FullScreenMap({ onClose }) {
                       </Popup>
                     </Marker>
                   ))}
-                  <MapUpdater center={activeRoute.coords[0]} />
+                  <MapUpdater coords={activeRoute.coords} />
                 </>
               )}
 
@@ -392,16 +452,26 @@ export default function FullScreenMap({ onClose }) {
                 <>
                   {comparedRoutes.allRoutes.map((routeObj, idx) => {
                     const isHighlighted = activeRoute === routeObj.data;
-                    const colors = { flight: '#3b82f6', train: '#ef4444', bus: '#10b981', car: '#f97316' };
+                    const colors = { flight: '#3b82f6', train: '#a855f7', bus: '#10b981', car: '#f97316' };
                     const color = colors[routeObj.mode] || '#f97316';
                     
+                    
+                    let lineWeight = 4;
+                    if (routeObj.mode === 'train') lineWeight = 16;
+                    if (routeObj.mode === 'bus') lineWeight = 10;
+                    if (routeObj.mode === 'car') lineWeight = 4;
+                    
+                    let dash = routeObj.mode === 'flight' ? '8, 12' : '';
+                    let opac = isHighlighted ? 1.0 : 0.85;
+
                     return routeObj.data.coords && routeObj.data.coords.length > 0 ? (
                       <Polyline 
                         key={idx}
                         positions={routeObj.data.coords} 
                         color={color} 
-                        weight={isHighlighted ? 6 : 3} 
-                        opacity={isHighlighted ? 1 : 0.35}
+                        weight={lineWeight} 
+                        opacity={opac}
+                        dashArray={dash}
                       />
                     ) : null;
                   })}
@@ -416,7 +486,7 @@ export default function FullScreenMap({ onClose }) {
                       </Popup>
                     </Marker>
                   ))}
-                  {activeRoute && activeRoute.coords.length > 0 && <MapUpdater center={activeRoute.coords[0]} />}
+                  {activeRoute && activeRoute.coords.length > 0 && <MapUpdater coords={activeRoute.coords} />}
                 </>
               )}
         </MapContainer>
@@ -448,6 +518,28 @@ export default function FullScreenMap({ onClose }) {
                   <span className="font-bold text-lux-orange text-lg">{activeRoute.totalScenic} Points</span>
                 </div>
               </div>
+
+              {/* Route Path Display */}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <span className="text-xs font-bold text-lux-muted uppercase tracking-wider mb-2 block">Route Path</span>
+                <div className="flex flex-wrap items-center gap-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                  {activeRoute.path.map((nodeId, i) => (
+                    <React.Fragment key={i}>
+                      <span className="text-sm font-semibold text-lux-navy bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                        {nodes[nodeId].name}
+                      </span>
+                      {i < activeRoute.path.length - 1 && <span className="text-lux-orange font-bold">→</span>}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowAnalytics(true)}
+                className="w-full mt-4 flex items-center justify-center gap-2 bg-lux-bg hover:bg-gray-100 text-lux-navy font-bold py-2 px-4 rounded-xl transition-all border border-gray-200"
+              >
+                <BarChart2 className="w-4 h-4" /> View Route Analytics
+              </button>
             </motion.div>
           )}
 
@@ -466,42 +558,59 @@ export default function FullScreenMap({ onClose }) {
               {/* Color Legend */}
               <div className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100 mb-4 text-xs font-semibold text-lux-navy">
                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-blue-500"></div>Flight</div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-red-500"></div>Train</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Train</div>
                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-emerald-500"></div>Bus</div>
                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-orange-500"></div>Car</div>
               </div>
               
-              <div className="space-y-3">
-                {/* Cheapest Route Card */}
-                <div 
-                  onClick={() => setActiveRoute(comparedRoutes.cheapest.data)}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${activeRoute === comparedRoutes.cheapest.data ? 'border-lux-orange bg-orange-50' : 'border-gray-100 hover:border-orange-200 bg-white'}`}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-green-600 bg-green-100 px-2 py-1 rounded-md">💰 Cheapest Option</span>
-                    <span className="text-lux-muted text-sm capitalize">{comparedRoutes.cheapest.mode}</span>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <span className="font-bold text-lux-navy text-2xl">₹{comparedRoutes.cheapest.data.totalCost.toLocaleString()}</span>
-                    <span className="text-lux-muted text-sm">{Math.floor(comparedRoutes.cheapest.data.totalTime / 60)}h {comparedRoutes.cheapest.data.totalTime % 60}m</span>
-                  </div>
-                </div>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {comparedRoutes.allRoutes.map((route, idx) => {
+                  const isCheapest = route === comparedRoutes.cheapest;
+                  const isFastest = route === comparedRoutes.fastest;
+                  
+                  let badge = null;
+                  if (isCheapest && isFastest) badge = <span className="text-xs font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-2 py-1 rounded-md">🏆 Best Overall</span>;
+                  else if (isCheapest) badge = <span className="text-xs font-bold uppercase tracking-wider text-green-600 bg-green-100 px-2 py-1 rounded-md">💰 Cheapest Option</span>;
+                  else if (isFastest) badge = <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-100 px-2 py-1 rounded-md">⚡ Fastest Option</span>;
+                  
+                  const modeColors = {
+                    flight: { border: 'border-gray-100 hover:border-blue-200', bg: 'bg-white', active: 'border-lux-navy bg-blue-50' },
+                    train: { border: 'border-gray-100 hover:border-purple-200', bg: 'bg-white', active: 'border-purple-500 bg-purple-50' },
+                    bus: { border: 'border-gray-100 hover:border-green-200', bg: 'bg-white', active: 'border-emerald-500 bg-emerald-50' },
+                    car: { border: 'border-gray-100 hover:border-orange-200', bg: 'bg-white', active: 'border-orange-500 bg-orange-50' }
+                  };
+                  const colors = modeColors[route.mode] || modeColors.car;
 
-                {/* Fastest Route Card */}
-                <div 
-                  onClick={() => setActiveRoute(comparedRoutes.fastest.data)}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${activeRoute === comparedRoutes.fastest.data ? 'border-lux-navy bg-blue-50' : 'border-gray-100 hover:border-blue-200 bg-white'}`}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-100 px-2 py-1 rounded-md">⚡ Fastest Option</span>
-                    <span className="text-lux-muted text-sm capitalize">{comparedRoutes.fastest.mode}</span>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <span className="font-bold text-lux-navy text-2xl">{Math.floor(comparedRoutes.fastest.data.totalTime / 60)}h {comparedRoutes.fastest.data.totalTime % 60}m</span>
-                    <span className="text-lux-muted text-sm">₹{comparedRoutes.fastest.data.totalCost.toLocaleString()}</span>
-                  </div>
-                </div>
+                  return (
+                    <div 
+                      key={idx}
+                      onClick={() => setActiveRoute(route.data)}
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${activeRoute === route.data ? colors.active : `${colors.border} ${colors.bg}`}`}
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lux-muted text-sm capitalize">{route.mode}</span>
+                          {badge}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-end mb-3">
+                        <span className="font-bold text-lux-navy text-2xl">₹{route.data.totalCost.toLocaleString()}</span>
+                        <span className="text-lux-muted text-sm">{Math.floor(route.data.totalTime / 60)}h {route.data.totalTime % 60}m</span>
+                      </div>
+                      <div className="text-xs font-medium text-gray-500 line-clamp-2">
+                        <span className="text-lux-orange font-bold mr-1">Path:</span>
+                        {route.data.path.map(id => nodes[id].name.replace(/\s*\([^)]+\)/, '')).join(' → ')}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+              <button 
+                onClick={() => setShowAnalytics(true)}
+                className="w-full mt-4 flex items-center justify-center gap-2 bg-lux-bg hover:bg-gray-100 text-lux-navy font-bold py-2 px-4 rounded-xl transition-all border border-gray-200"
+              >
+                <BarChart2 className="w-4 h-4" /> View Route Analytics
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -511,6 +620,91 @@ export default function FullScreenMap({ onClose }) {
     <AnimatePresence>
       {isPlannerOpen && (
         <SmartPlanner onClose={() => setIsPlannerOpen(false)} />
+      )}
+    </AnimatePresence>
+
+    {/* Analytics Slide-out Drawer */}
+    <AnimatePresence>
+      {showAnalytics && (
+        <motion.div
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="fixed top-0 right-0 w-full md:w-[450px] h-full bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.1)] z-[2000] flex flex-col"
+        >
+          <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white/95 backdrop-blur-md sticky top-0 z-10">
+            <h2 className="text-xl font-serif font-bold text-lux-navy flex items-center gap-2">
+              <BarChart2 className="w-6 h-6 text-lux-orange" /> Route Analytics
+            </h2>
+            <button onClick={() => setShowAnalytics(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          
+          <div className="p-6 overflow-y-auto flex-1 bg-lux-bg/30">
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6">
+              <h3 className="text-sm font-bold text-lux-muted uppercase tracking-wider mb-4">Transport Mode Comparison (Cost)</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={transportStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tick={{fontSize: 12}} />
+                    <YAxis tick={{fontSize: 12}} />
+                    <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="Cost" fill="#E07A5F" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6">
+              <h3 className="text-sm font-bold text-lux-muted uppercase tracking-wider mb-4">Transport Mode Comparison (Time/Mins)</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={transportStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tick={{fontSize: 12}} />
+                    <YAxis tick={{fontSize: 12}} />
+                    <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="Time" fill="#3D405B" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6">
+              <h3 className="text-sm font-bold text-lux-muted uppercase tracking-wider mb-4">Algorithm Efficiency (Path Nodes)</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={algoStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tick={{fontSize: 12}} />
+                    <YAxis tick={{fontSize: 12}} />
+                    <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="PathLength" fill="#81B29A" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-gray-500 mt-3 italic">Compares how many hops different AI algorithms took for the primary mode.</p>
+            </div>
+            
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+              <h3 className="text-sm font-bold text-lux-muted uppercase tracking-wider mb-4">Algorithm Cost Comparison</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={algoStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tick={{fontSize: 12}} />
+                    <YAxis tick={{fontSize: 12}} />
+                    <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="Cost" fill="#F2CC8F" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       )}
     </AnimatePresence>
     </>

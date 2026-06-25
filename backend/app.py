@@ -55,6 +55,17 @@ def route_minimax():
         return jsonify({"success": True, "next_best_move": best_move, "score": best_val})
     return jsonify({"success": False, "message": "No path evaluated."})
 
+@app.route('/api/route/astar', methods=['POST'])
+def route_astar():
+    data = request.json
+    source = data.get('source', 'Delhi')
+    target = data.get('target', 'Mumbai')
+    
+    res = ai_algorithms.a_star_search(source, target)
+    if res:
+        return jsonify({"success": True, "path": res[0], "cost": res[1]})
+    return jsonify({"success": False, "message": "No route found."})
+
 @app.route('/api/plan-itinerary', methods=['POST'])
 def plan_itinerary():
     data = request.json

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tourist Route Planner - Project Poster</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #1e293b;
+            --accent: #38bdf8;
+            --text-main: #334155;
+            --text-light: #f8fafc;
+            --panel-bg: #ffffff;
+            --panel-border: #cbd5e1;
+            --header-bg: #0c4a6e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--primary);
+            /* A subtle tech/travel themed background */
+            background-image: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.95)), url('https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=3000&q=80');
+            background-size: cover;
+            background-position: center;
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* Poster Container (A1 horizontal aspect ratio roughly 16:9 for screen viewing) */
+        .poster {
+            width: 1920px;
+            height: 1080px;
+            background: rgba(248, 250, 252, 0.95);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            overflow: hidden;
+            border: 4px solid var(--accent);
+            position: relative;
+        }
+
+        /* --- Header Section --- */
+        .poster-header {
+            background: linear-gradient(135deg, var(--header-bg), var(--secondary));
+            color: var(--text-light);
+            text-align: center;
+            padding: 25px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 5px solid var(--accent);
+        }
+
+        .header-logo i {
+            font-size: 4rem;
+            color: var(--accent);
+        }
+
+        .header-title h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .header-title h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: var(--accent);
+        }
+
+        .header-info {
+            display: flex;
+            gap: 20px;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .info-block {
+            text-align: left;
+        }
+        .info-block strong { display: block; color: var(--accent); font-size: 0.9rem; text-transform: uppercase;}
+        .info-block span { font-size: 1rem; font-weight: 500;}
+
+        /* --- Main Grid Content --- */
+        .poster-content {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 15px;
+            padding: 20px;
+            height: 100%;
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--panel-bg);
+            border: 2px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .panel-title {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--header-bg);
+            color: white;
+            padding: 8px 15px;
+            margin: -15px -15px 15px -15px;
+            border-radius: 6px 6px 0 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-content {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+
+        .panel-content p { margin-bottom: 10px; }
+        .panel-content ul { padding-left: 20px; margin-bottom: 10px; }
+        .panel-content li { margin-bottom: 5px; }
+
+        /* Left Column */
+        .col-left { display: flex; flex-direction: column; }
+        
+        .software-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .software-table th, .software-table td { padding: 8px; border: 1px solid #e2e8f0; text-align: left; }
+        .software-table th { background: #f1f5f9; font-weight: 600; color: var(--header-bg); }
+
+        .arch-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+        }
+        .arch-box {
+            background: #e0f2fe;
+            border: 2px solid #0284c7;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            width: 100%;
+        }
+        .arch-arrow { color: #0284c7; font-size: 1.2rem; }
+
+        /* Middle Column (Algorithms - the core) */
+        .col-middle { display: flex; flex-direction: column; }
+        
+        .algorithms-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            height: 100%;
+        }
+
+        .algo-card {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            border-left: 4px solid var(--accent);
+        }
+        
+        .algo-icon {
+            font-size: 2.5rem;
+            color: var(--header-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 60px;
+        }
+
+        .algo-details h3 {
+            font-size: 1.1rem;
+            color: var(--header-bg);
+            margin-bottom: 5px;
+        }
+        .algo-details strong { color: #0f172a; font-size: 0.95rem; display:block; margin-bottom:2px;}
+        .algo-details p { font-size: 0.9rem; color: #475569; margin: 0;}
+
+        /* Right Column */
+        .col-right { display: flex; flex-direction: column; }
+
+        .screen-mockups {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .mockup {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        .mockup-header {
+            background: #f1f5f9;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-bottom: 1px solid #cbd5e1;
+            color: #64748b;
+        }
+        .mockup-body {
+            height: 120px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 0.8rem;
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .bg-map { background-image: url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5ce?auto=format&fit=crop&w=500&q=60'); }
+        .bg-dash { background-image: url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=500&q=60'); }
+        
+        .advantages-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            text-align: center;
+        }
+        .adv-item {
+            padding: 10px;
+        }
+        .adv-item i { font-size: 2rem; color: #10b981; margin-bottom: 5px; }
+        .adv-item span { display: block; font-size: 0.85rem; font-weight: 600; }
+
+        /* Footer */
+        .poster-footer {
+            background: var(--header-bg);
+            color: white;
+            padding: 10px 40px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            border-top: 3px solid var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="poster">
+        <!-- HEADER -->
+        <div class="poster-header">
+            <div class="header-logo">
+                <i class="fa-solid fa-earth-asia"></i>
+            </div>
+            <div class="header-title">
+                <h1>Tourist Route Planner</h1>
+                <h2>Combining Search, Reasoning and Learning for Intelligent Travel Decision Making</h2>
+            </div>
+            <div class="header-info">
+                <div class="info-block">
+                    <strong>Student Name</strong>
+                    <span>Your Name Here</span>
+                </div>
+                <div class="info-block">
+                    <strong>Project Guide</strong>
+                    <span>Guide Name Here</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="poster-content">
+            
+            <!-- LEFT COLUMN -->
+            <div class="col-left">
+                <div class="panel">
+                    <div class="panel-title"><i class="fa-solid fa-info-circle"></i> 1. Introduction</div>
+                    <div class="panel-content">
+                        <p>The <strong>Tourist Route Planner</strong> is an advanced hybrid AI system designed to optimize travel itineraries across India. It addresses the complex problem of travel planning by considering multiple constraints such as budget, time, and unpredictable conditions like weather and traffic.</p>
+                        <p>By integrating uninformed/informed search, constraint satisfaction, adversarial reasoning, and probabilistic models, the system guarantees optimal, robust, and personalized travel decisions.</p>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title"><i class="fa-solid fa-sitemap"></i> 2. System Architecture</div>
+                    <div class="panel-content">
+                        <div class="arch-diagram">
+                            <div class="arch-box"><i class="fa-brands fa-react"></i> React Frontend User Interface</div>
+                            <i class="fa-solid fa-arrow-down arch-arrow"></i>
+                            <div class="arch-box"><i class="fa-solid fa-server"></i> Flask API Server</div>
+                            <i class="fa-solid fa-arrow-down arch-arrow"></i>
+                            <div class="arch-box" style="background:#fef08a; border-color:#ca8a04;"><i class="fa-solid fa-brain"></i> Hybrid AI Reasoning Engine</div>
+                            <i class="fa-solid fa-arrow-down arch-arrow"></i>
+                            <div class="arch-box"><i class="fa-solid fa-map-location-dot"></i> Itinerary & Route Output</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel" style="flex-grow: 1;">
+                    <div class="panel-title"><i class="fa-solid fa-code"></i> 3. Software Details</div>
+                    <div class="panel-content">
+                        <table class="software-table">
+                            <tr><th>Component</th><th>Technology / Tools</th></tr>
+                            <tr><td>Programming Languages</td><td>Python (Backend), JavaScript (Frontend)</td></tr>
+                            <tr><td>AI Libraries</td><td>NetworkX, NumPy, Gemini GenAI</td></tr>
+                            <tr><td>Reasoning Engine</td><td>Custom Python AI Algorithms</td></tr>
+                            <tr><td>Frontend Framework</td><td>React.js, Tailwind CSS</td></tr>
+                            <tr><td>Backend API</td><td>Flask Server</td></tr>
+                            <tr><td>Operating System</td><td>Windows / Linux / macOS</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MIDDLE COLUMN -->
+            <div class="col-middle">
+                <div class="panel" style="height: 100%;">
+                    <div class="panel-title"><i class="fa-solid fa-microchip"></i> 4. AI Algorithms and Their Uses</div>
+                    <div class="panel-content algorithms-grid">
+                        
+                        <div class="algo-card">
+                            <div class="algo-icon"><i class="fa-solid fa-route"></i></div>
+                            <div class="algo-details">
+                                <h3>1. Uninformed & Informed Search</h3>
+                                <strong>Algorithm: Backtracking Search</strong>
+                                <p><strong>Uses:</strong> Used for core path-finding between cities (e.g., Delhi to Udaipur) while strictly adhering to user-defined constraints like a maximum travel distance or budget.</p>
+                            </div>
+                        </div>
+
+                        <div class="algo-card">
+                            <div class="algo-icon"><i class="fa-solid fa-puzzle-piece"></i></div>
+                            <div class="algo-details">
+                                <h3>2. Constraint Satisfaction Problems (CSP)</h3>
+                                <strong>Algorithm: Forward Checking</strong>
+                                <p><strong>Uses:</strong> Enhances the search process by looking ahead to avoid dead ends (like reaching a city with no outbound routes), significantly speeding up itinerary generation.</p>
+                            </div>
+                        </div>
+
+                        <div class="algo-card">
+                            <div class="algo-icon"><i class="fa-solid fa-chess-knight"></i></div>
+                            <div class="algo-details">
+                                <h3>3. Adversarial Search</h3>
+                                <strong>Algorithms: Minimax & Alpha-Beta Pruning</strong>
+                                <p><strong>Uses:</strong> Models travel planning as a game against 'nature'. It finds the safest routes by minimizing delays against worst-case scenarios (like severe bad weather blocking roads).</p>
+                            </div>
+                        </div>
+
+                        <div class="algo-card">
+                            <div class="algo-icon"><i class="fa-solid fa-chart-network"></i></div>
+                            <div class="algo-details">
+                                <h3>4. Probabilistic Models</h3>
+                                <strong>Algorithms: Expected Utility & Bayesian Networks</strong>
+                                <p><strong>Uses:</strong> Calculates the Expected Utility of scenic vs. highway routes under uncertain weather. Bayesian Networks predict the precise probability of travel delays based on traffic and weather conditions.</p>
+                            </div>
+                        </div>
+
+                        <div class="algo-card">
+                            <div class="algo-icon"><i class="fa-solid fa-robot"></i></div>
+                            <div class="algo-details">
+                                <h3>5. Generative AI & Natural Language</h3>
+                                <strong>Algorithm: LLM Integration (Travelora Chatbot)</strong>
+                                <p><strong>Uses:</strong> Employs Google's Gemini Pro to provide an intuitive, conversational interface, allowing users to plan trips simply by chatting in natural language.</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <div class="col-right">
+                <div class="panel">
+                    <div class="panel-title"><i class="fa-solid fa-desktop"></i> 5. Output Screens</div>
+                    <div class="panel-content screen-mockups">
+                        <div class="mockup">
+                            <div class="mockup-header">Screen 1: Interactive Route Map</div>
+                            <div class="mockup-body bg-map">
+                                <div style="background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; color: white;">Optimized Path Visualized</div>
+                            </div>
+                        </div>
+                        <div class="mockup">
+                            <div class="mockup-header">Screen 2: Analytics Dashboard</div>
+                            <div class="mockup-body bg-dash">
+                                <div style="background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; color: white;">Weather & Delay Predictions</div>
+                            </div>
+                        </div>
+                        <div class="mockup">
+                            <div class="mockup-header">Screen 3: Travelora AI Chatbot</div>
+                            <div class="mockup-body" style="background: #f8fafc; color: #334155; font-family: monospace; text-align: left; padding: 10px; align-items: flex-start; flex-direction: column;">
+                                <div style="margin-bottom:5px;"><strong>User:</strong> Plan a cheap trip to Jaipur.</div>
+                                <div style="color: #0284c7;"><strong>Travelora:</strong> I can optimize routes to minimize costs. Select 'Backpacker' option...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title"><i class="fa-solid fa-star"></i> 6. Advantages</div>
+                    <div class="panel-content advantages-grid">
+                        <div class="adv-item">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span>Efficient Routing</span>
+                        </div>
+                        <div class="adv-item">
+                            <i class="fa-solid fa-umbrella"></i>
+                            <span>Uncertainty Handling</span>
+                        </div>
+                        <div class="adv-item">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Robust Decisions</span>
+                        </div>
+                        <div class="adv-item">
+                            <i class="fa-solid fa-comments"></i>
+                            <span>Conversational UI</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel" style="flex-grow: 1;">
+                    <div class="panel-title"><i class="fa-solid fa-check-circle"></i> 7. Conclusion</div>
+                    <div class="panel-content">
+                        <p>The Hybrid AI Tourist Route Planner successfully demonstrates the power of combining traditional search algorithms with modern probabilistic and generative AI models. It provides a robust, user-friendly decision support system capable of solving complex real-world navigation challenges under uncertainty.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- FOOTER -->
+        <div class="poster-footer">
+            <div>Department of Computer Science / Information Technology</div>
+            <div>Academic Year: 2025 - 2026</div>
+            <div>Building Intelligent Systems for a Better Tomorrow</div>
+        </div>
+    </div>
+
+</body>
+</html>
